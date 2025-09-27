@@ -154,7 +154,7 @@ const cardsContainer = document.getElementById('cards-view');
 
 // --- Fetch PDFs and render cards ---
 async function fetchPDFs() {
-  const res = await fetch('http://localhost:3000/pdfs');
+  const res = await fetch('https://research-buddy.onrender.com/pdfs');
   const pdfs = await res.json();
   renderCards(pdfs);
 }
