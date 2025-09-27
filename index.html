@@ -183,7 +183,7 @@ function renderCards(list) {
 
 // --- Open PDF ---
 async function openPDF(id) {
-  const url = `http://localhost:3000/pdf/${id}/raw`;
+  const url = `https://research-buddy.onrender.com/pdf/${id}/raw`;
   pdfDoc = await pdfjsLib.getDocument(url).promise;
   currentPage = 1;
   document.getElementById('total-pages').innerText = pdfDoc.numPages;
