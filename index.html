@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Research Buddy</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* --- Global --- */
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: #f0f2f5;
+    color: #333;
+  }
+
+  h1 {
+    text-align: center;
+    padding: 20px;
+    color: #222;
+    font-weight: 600;
+  }
+
+  /* --- Cards View --- */
+  #cards-view {
+    display: block;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(280px,1fr));
+    gap: 20px;
+    max-width: 1200px;
+    margin: auto;
+  }
+
+  .pdf-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 140px;
+  }
+
+  .pdf-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+  }
+
+  .pdf-card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .pdf-card p {
+    margin: 0;
+    font-weight: 500;
+    margin-top: 8px;
+    color: #555;
+  }
+
+  /* --- Reader View --- */
+  #reader-view {
+    display: none;
+    padding: 20px;
+    max-width: 1000px;
+    margin: auto;
+  }
+
+  #pdf-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  #pdf-controls button, #back-btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background: #0078d7;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  #pdf-controls button:hover, #back-btn:hover {
+    background: #005ea1;
+  }
+
+  #back-btn {
+    background: #555;
+    margin-bottom: 12px;
+  }
+
+  #back-btn:hover {
+    background: #333;
+  }
+
+  #pdf-canvas-container {
+    text-align: center;
+    overflow: auto;
+    max-height: 80vh;
+    padding: 10px;
+    background: #fff;
+    border-radius: 8px;
+  }
+
+  canvas {
+    margin: 10px 0;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    max-width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<h1>Research Buddy</h1>
+
+<!-- Cards View -->
+<div id="cards-view"></div>
+
+<!-- Reader View -->
+<div id="reader-view">
+  <button id="back-btn">← Back to Archive</button>
+  <div id="pdf-controls">
+    <button id="prev-page">Previous</button>
+    <span>Page: <span id="current-page">1</span> / <span id="total-pages">1</span></span>
+    <button id="next-page">Next</button>
+    <button id="zoom-in">Zoom +</button>
+    <button id="zoom-out">Zoom -</button>
+  </div>
+  <div id="pdf-canvas-container"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+// --- Variables ---
+let pdfDoc = null;
+let currentPage = 1;
+let scale = 1.5;
+const canvasContainer = document.getElementById('pdf-canvas-container');
+const cardsContainer = document.getElementById('cards-view');
+
+// --- Fetch PDFs and render cards ---
+async function fetchPDFs() {
+  const res = await fetch('http://localhost:3000/pdfs');
+  const pdfs = await res.json();
+  renderCards(pdfs);
+}
+
+// --- Render Cards ---
+function renderCards(list) {
+  cardsContainer.innerHTML = '';
+  list.forEach(pdf => {
+    let displayName = pdf.name.replace(/\.pdf$/i, ""); // Remove .pdf
+    if (displayName.length > 35) {
+      displayName = displayName.substring(0, 32) + "..."; // Limit length
+    }
+
+    const card = document.createElement('div');
+    card.className = 'pdf-card';
+    card.innerHTML = `
+      <div>
+        <h3>${displayName}</h3>
+        <p>Status: ${pdf.completed ? '✅ Completed' : '❌ Not Completed'}</p>
+      </div>
+    `;
+    cardsContainer.appendChild(card);
+    card.addEventListener('click', () => openPDF(pdf.id));
+  });
+}
+
+// --- Open PDF ---
+async function openPDF(id) {
+  const url = `http://localhost:3000/pdf/${id}/raw`;
+  pdfDoc = await pdfjsLib.getDocument(url).promise;
+  currentPage = 1;
+  document.getElementById('total-pages').innerText = pdfDoc.numPages;
+
+  document.getElementById('cards-view').style.display = 'none';
+  document.getElementById('reader-view').style.display = 'block';
+
+  renderPage(currentPage);
+}
+
+// --- Render Page ---
+function renderPage(num) {
+  pdfDoc.getPage(num).then(page => {
+    canvasContainer.innerHTML = '';
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    canvasContainer.appendChild(canvas);
+    page.render({ canvasContext: context, viewport: viewport });
+    document.getElementById('current-page').innerText = num;
+  });
+}
+
+// --- Controls ---
+document.getElementById('prev-page').addEventListener('click', () => {
+  if (currentPage <= 1) return;
+  currentPage--;
+  renderPage(currentPage);
+});
+document.getElementById('next-page').addEventListener('click', () => {
+  if (currentPage >= pdfDoc.numPages) return;
+  currentPage++;
+  renderPage(currentPage);
+});
+document.getElementById('zoom-in').addEventListener('click', () => {
+  scale += 0.25;
+  renderPage(currentPage);
+});
+document.getElementById('zoom-out').addEventListener('click', () => {
+  if (scale <= 0.5) return;
+  scale -= 0.25;
+  renderPage(currentPage);
+});
+document.getElementById('back-btn').addEventListener('click', () => {
+  document.getElementById('reader-view').style.display = 'none';
+  document.getElementById('cards-view').style.display = 'grid';
+  canvasContainer.innerHTML = '';
+});
+
+// --- Initial load ---
+fetchPDFs();
+</script>
+
+</body>
+</html>

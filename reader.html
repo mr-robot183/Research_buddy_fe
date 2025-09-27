@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PDF Reader</title>
+<style>
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: #f5f5f5;
+}
+#pdf-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #0078d7;
+  color: white;
+}
+#pdf-controls button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: white;
+  color: #0078d7;
+  font-weight: bold;
+  cursor: pointer;
+}
+#pdf-controls button:hover {
+  background: #e0e0e0;
+}
+#pdf-canvas-container {
+  text-align: center;
+  overflow: auto;
+  height: calc(100vh - 60px);
+  padding: 10px;
+}
+canvas {
+  margin: 10px 0;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+</style>
+</head>
+<body>
+
+<div id="pdf-controls">
+  <button id="prev-page">Previous</button>
+  <span>Page: <span id="current-page">1</span> / <span id="total-pages">1</span></span>
+  <button id="next-page">Next</button>
+  <button id="zoom-in">Zoom +</button>
+  <button id="zoom-out">Zoom -</button>
+</div>
+
+<div id="pdf-canvas-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+const urlParams = new URLSearchParams(window.location.search);
+const pdfId = urlParams.get('id');
+const url = `http://localhost:3000/pdf/${pdfId}/raw`;
+
+let pdfDoc = null;
+let currentPage = 1;
+let scale = 1.5;
+const canvasContainer = document.getElementById('pdf-canvas-container');
+
+async function loadPDF() {
+  pdfDoc = await pdfjsLib.getDocument(url).promise;
+  document.getElementById('total-pages').innerText = pdfDoc.numPages;
+  renderPage(currentPage);
+}
+
+function renderPage(num) {
+  pdfDoc.getPage(num).then(page => {
+    canvasContainer.innerHTML = '';
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    canvasContainer.appendChild(canvas);
+    page.render({ canvasContext: context, viewport: viewport });
+    document.getElementById('current-page').innerText = num;
+  });
+}
+
+// Controls
+document.getElementById('prev-page').addEventListener('click', () => {
+  if (currentPage <= 1) return;
+  currentPage--;
+  renderPage(currentPage);
+});
+document.getElementById('next-page').addEventListener('click', () => {
+  if (currentPage >= pdfDoc.numPages) return;
+  currentPage++;
+  renderPage(currentPage);
+});
+document.getElementById('zoom-in').addEventListener('click', () => {
+  scale += 0.25;
+  renderPage(currentPage);
+});
+document.getElementById('zoom-out').addEventListener('click', () => {
+  if (scale <= 0.5) return;
+  scale -= 0.25;
+  renderPage(currentPage);
+});
+
+loadPDF();
+</script>
+
+</body>
+</html>
